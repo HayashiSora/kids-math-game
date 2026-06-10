@@ -21,6 +21,8 @@ python3 -m http.server 8765
 
 ## 線上遊玩
 
-GitHub Pages 部署後可於以下網址遊玩（部署完成後更新）：
+倉庫網址：https://github.com/HayashiSora/kids-math-game
 
-https://YOUR_USERNAME.github.io/kids-math-game/kids-math-game.html
+若要線上遊玩，可在 GitHub 倉庫 **Settings → Pages** 啟用，Branch 選 `main`、路徑選 `/`，部署後開啟：
+
+https://hayashisora.github.io/kids-math-game/kids-math-game.html
