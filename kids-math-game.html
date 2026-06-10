@@ -1,0 +1,1103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Snoopy 快樂算一算</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --sky: #87ceeb;
+      --sky-deep: #5ba8d4;
+      --card: #ffffff;
+      --doghouse: #c0392b;
+      --doghouse-dark: #922b21;
+      --primary: #e74c3c;
+      --success: #27ae60;
+      --error: #e74c3c;
+      --text: #2c3e50;
+      --text-light: #7f8c8d;
+      --shadow: 0 6px 24px rgba(0,0,0,0.12);
+      --radius: 22px;
+    }
+
+    body {
+      font-family: "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      background: linear-gradient(180deg, var(--sky) 0%, #b8e4f9 55%, #d4f0d4 100%);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    /* 雲朵 */
+    .clouds {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .cloud {
+      position: absolute;
+      background: rgba(255,255,255,0.75);
+      border-radius: 50px;
+      animation: drift linear infinite;
+    }
+    .cloud::before, .cloud::after {
+      content: "";
+      position: absolute;
+      background: inherit;
+      border-radius: 50%;
+    }
+    .cloud-1 { width: 80px; height: 28px; top: 8%; left: -100px; animation-duration: 28s; }
+    .cloud-1::before { width: 36px; height: 36px; top: -18px; left: 12px; }
+    .cloud-1::after  { width: 48px; height: 30px; top: -12px; left: 36px; }
+    .cloud-2 { width: 100px; height: 32px; top: 18%; left: -120px; animation-duration: 38s; animation-delay: -10s; }
+    .cloud-2::before { width: 44px; height: 44px; top: -22px; left: 16px; }
+    .cloud-2::after  { width: 56px; height: 36px; top: -16px; left: 44px; }
+    @keyframes drift {
+      from { transform: translateX(0); }
+      to   { transform: translateX(calc(100vw + 200px)); }
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+      padding: 12px 16px 28px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 1;
+    }
+
+    header { text-align: center; margin-bottom: 8px; }
+    header h1 {
+      font-size: clamp(1.5rem, 5.5vw, 1.9rem);
+      color: #fff;
+      font-weight: 800;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    header p { font-size: 0.88rem; color: rgba(255,255,255,0.9); margin-top: 2px; }
+
+    .screen { display: none; flex-direction: column; flex: 1; animation: fadeIn 0.4s ease; }
+    .screen.active { display: flex; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 音樂按鈕 */
+    .music-btn {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 300;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      background: rgba(255,255,255,0.92);
+      font-size: 1.3rem;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s;
+    }
+    .music-btn:active { transform: scale(0.92); }
+    .music-btn.off { opacity: 0.65; }
+
+    /* 朋友角色列 */
+    .friends-bar {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      padding: 10px;
+      background: rgba(255,255,255,0.75);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+    .friend {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 12px;
+      transition: transform 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .friend:active { transform: scale(0.92); }
+    .friend.active { background: rgba(255,200,100,0.4); }
+    .friend svg { width: 48px; height: 48px; }
+    .friend span { font-size: 0.62rem; font-weight: 700; color: var(--text); }
+
+    .guest-character {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 14px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      animation: fadeIn 0.4s ease;
+    }
+    .guest-character svg { width: 42px; height: 42px; flex-shrink: 0; }
+    .guest-character p { font-size: 0.82rem; font-weight: 700; color: var(--text); line-height: 1.3; }
+
+    /* ===== Snoopy 角色區 ===== */
+    .snoopy-stage {
+      position: relative;
+      height: 148px;
+      margin-bottom: 6px;
+      flex-shrink: 0;
+    }
+
+    .speech-bubble {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      border-radius: 18px;
+      padding: 8px 14px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text);
+      box-shadow: var(--shadow);
+      max-width: 90%;
+      text-align: center;
+      z-index: 5;
+      animation: bubblePop 0.35s ease;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .speech-bubble::after {
+      content: "";
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 8px solid transparent;
+      border-top-color: #fff;
+      border-bottom: 0;
+    }
+    @keyframes bubblePop {
+      0%   { transform: translateX(-50%) scale(0.6); opacity: 0; }
+      70%  { transform: translateX(-50%) scale(1.05); }
+      100% { transform: translateX(-50%) scale(1); opacity: 1; }
+    }
+
+    .snoopy-wrap {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.2s;
+    }
+    .snoopy-wrap:active { transform: translateX(-50%) scale(0.95); }
+
+    .snoopy-wrap.happy  { animation: snoopyJump 0.6s ease; }
+    .snoopy-wrap.sad    { animation: snoopyWobble 0.5s ease; }
+    .snoopy-wrap.dance  { animation: snoopyDance 0.8s ease; }
+    .snoopy-wrap.fly    { animation: snoopyFly 1.2s ease forwards; }
+
+    @keyframes snoopyJump {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      40%       { transform: translateX(-50%) translateY(-28px) rotate(-5deg); }
+      60%       { transform: translateX(-50%) translateY(-20px) rotate(5deg); }
+    }
+    @keyframes snoopyWobble {
+      0%, 100% { transform: translateX(-50%) rotate(0); }
+      25%       { transform: translateX(-50%) rotate(-8deg); }
+      75%       { transform: translateX(-50%) rotate(8deg); }
+    }
+    @keyframes snoopyDance {
+      0%, 100% { transform: translateX(-50%) rotate(0) scale(1); }
+      25%       { transform: translateX(-50%) rotate(-12deg) scale(1.05); }
+      50%       { transform: translateX(-50%) rotate(12deg) scale(1.08); }
+      75%       { transform: translateX(-50%) rotate(-8deg) scale(1.05); }
+    }
+    @keyframes snoopyFly {
+      0%   { transform: translateX(-50%) translateY(0); }
+      30%  { transform: translateX(-50%) translateY(-60px) rotate(-10deg); }
+      100% { transform: translateX(80px) translateY(-100px) rotate(15deg); opacity: 0.3; }
+    }
+
+    .snoopy-wrap svg { display: block; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.12)); }
+
+    /* 骨頭收集列 */
+    .bone-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.85);
+      border-radius: 99px;
+      padding: 6px 14px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+    .bone-bar .bones { display: flex; gap: 3px; flex: 1; flex-wrap: wrap; min-height: 22px; }
+    .bone-bar .bone-icon { font-size: 1.1rem; animation: boneIn 0.4s ease; }
+    @keyframes boneIn {
+      from { transform: scale(0) rotate(-30deg); opacity: 0; }
+      to   { transform: scale(1) rotate(0); opacity: 1; }
+    }
+    .streak-badge {
+      background: linear-gradient(135deg, #f39c12, #e74c3c);
+      color: #fff;
+      border-radius: 99px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      white-space: nowrap;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.3s;
+    }
+    .streak-badge.show { opacity: 1; transform: scale(1); }
+
+    /* 進度：Snoopy 在狗屋屋頂走 */
+    .progress-track {
+      position: relative;
+      height: 36px;
+      margin-bottom: 12px;
+    }
+    .doghouse-roof {
+      position: absolute;
+      bottom: 0;
+      left: 0; right: 0;
+      height: 18px;
+      background: var(--doghouse);
+      border-radius: 4px 4px 0 0;
+      border: 3px solid var(--doghouse-dark);
+      border-bottom: none;
+    }
+    .doghouse-roof::before {
+      content: "DOG HOUSE";
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      font-weight: 900;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 1px;
+    }
+    .progress-walker {
+      position: absolute;
+      bottom: 14px;
+      left: 0;
+      font-size: 1.6rem;
+      transition: left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 2;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    }
+
+    .question-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 0.88rem;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* 首頁 */
+    .mode-cards { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+    .mode-card {
+      background: var(--card);
+      border: 3px solid transparent;
+      border-radius: var(--radius);
+      padding: 22px 18px;
+      text-align: center;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: transform 0.15s, border-color 0.15s;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .mode-card:active { transform: scale(0.97); }
+    .mode-card:hover  { border-color: var(--primary); }
+    .mode-card .icon { font-size: 2.6rem; flex-shrink: 0; }
+    .mode-card .mode-text { text-align: left; }
+    .mode-card h2 { font-size: 1.3rem; color: var(--primary); }
+    .mode-card p  { font-size: 0.85rem; color: var(--text-light); margin-top: 2px; }
+
+    /* 題目區 */
+    .question-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 20px 14px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 16px;
+      border: 3px solid rgba(255,255,255,0.6);
+    }
+
+    .tap-hint {
+      font-size: 0.78rem;
+      color: var(--text-light);
+      margin-bottom: -8px;
+    }
+
+    .visual-aid {
+      font-size: clamp(1.5rem, 6.5vw, 2rem);
+      line-height: 1.7;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .fruit-item {
+      display: inline-block;
+      cursor: pointer;
+      transition: transform 0.15s;
+      user-select: none;
+    }
+    .fruit-item:active { transform: scale(1.3); }
+    .fruit-item.tapped {
+      animation: fruitPop 0.3s ease;
+      filter: drop-shadow(0 0 6px gold);
+    }
+    .fruit-item.fade-out {
+      opacity: 0.25;
+      transform: scale(0.85);
+      transition: all 0.4s;
+    }
+    @keyframes fruitPop {
+      50% { transform: scale(1.4); }
+    }
+
+    .visual-aid .op {
+      font-weight: 800;
+      color: var(--primary);
+      margin: 0 4px;
+      font-size: 1.2em;
+    }
+
+    .count-display {
+      font-size: 0.9rem;
+      color: var(--sky-deep);
+      font-weight: 700;
+      min-height: 22px;
+    }
+
+    .question-text {
+      font-size: clamp(2rem, 9vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: 2px;
+    }
+
+    .answers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .answer-btn {
+      background: linear-gradient(180deg, #fff 0%, #f8f9fa 100%);
+      border: 3px solid #dde4ea;
+      border-radius: 18px;
+      font-size: clamp(1.5rem, 6.5vw, 2rem);
+      font-weight: 700;
+      padding: 18px 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #c8d0d8;
+      transition: transform 0.1s, box-shadow 0.1s;
+      min-height: 68px;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
+    }
+    .answer-btn:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #c8d0d8;
+    }
+    .answer-btn.correct {
+      background: linear-gradient(180deg, #d5f5e3, #abebc6);
+      border-color: var(--success);
+      box-shadow: 0 4px 0 #27ae60;
+      animation: pop 0.4s ease;
+    }
+    .answer-btn.wrong {
+      background: linear-gradient(180deg, #fadbd8, #f5b7b1);
+      border-color: var(--error);
+      box-shadow: 0 4px 0 #c0392b;
+      animation: shake 0.4s ease;
+    }
+    @keyframes pop {
+      50% { transform: scale(1.06); }
+    }
+    @keyframes shake {
+      25% { transform: translateX(-5px); }
+      75% { transform: translateX(5px); }
+    }
+
+    .feedback {
+      text-align: center;
+      font-size: 1.15rem;
+      font-weight: 700;
+      min-height: 32px;
+      margin-top: 10px;
+    }
+    .feedback.good { color: var(--success); }
+    .feedback.try  { color: var(--primary); }
+
+    /* 結果 */
+    .result-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 28px 20px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .result-stars { font-size: 2.2rem; letter-spacing: 3px; }
+    .result-title { font-size: 1.5rem; font-weight: 800; color: var(--primary); }
+    .result-score { font-size: 1rem; color: var(--text-light); }
+    .result-bones { font-size: 1.8rem; }
+
+    .btn-primary {
+      background: linear-gradient(180deg, var(--primary), var(--doghouse-dark));
+      color: #fff;
+      border: none;
+      border-radius: 18px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      padding: 15px 36px;
+      cursor: pointer;
+      box-shadow: 0 5px 0 #7b241c;
+      margin-top: 8px;
+      min-height: 54px;
+      min-width: 190px;
+      transition: transform 0.1s;
+      user-select: none;
+    }
+    .btn-primary:active { transform: translateY(3px); box-shadow: 0 2px 0 #7b241c; }
+    .btn-back {
+      background: none; border: none;
+      color: var(--text-light);
+      font-size: 0.9rem;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    /* 粒子 */
+    .particle {
+      position: fixed;
+      pointer-events: none;
+      font-size: 1.4rem;
+      z-index: 200;
+      animation: particleFly 1s ease forwards;
+    }
+    @keyframes particleFly {
+      0%   { opacity: 1; transform: translate(0,0) scale(1) rotate(0); }
+      100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.3) rotate(360deg); }
+    }
+
+    .flying-ace {
+      position: fixed;
+      font-size: 2.5rem;
+      z-index: 150;
+      pointer-events: none;
+      animation: aceFly 2s ease forwards;
+    }
+    @keyframes aceFly {
+      0%   { left: -60px; top: 30%; opacity: 1; transform: rotate(-10deg); }
+      50%  { top: 15%; transform: rotate(5deg); }
+      100% { left: 110%; top: 25%; opacity: 0; transform: rotate(15deg); }
+    }
+  </style>
+</head>
+<body>
+  <button class="music-btn" id="music-btn" title="背景音樂" aria-label="背景音樂">🎵</button>
+
+  <div class="clouds">
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+  </div>
+
+  <div class="container">
+    <header>
+      <h1>🐾 Snoopy 快樂算一算</h1>
+      <p>跟 Snoopy 一起練加減法！</p>
+    </header>
+
+    <!-- Snoopy 舞台（全畫面共用） -->
+    <div class="snoopy-stage" id="snoopy-stage">
+      <div class="speech-bubble" id="speech">嗨！點點我，我會幫你加油！</div>
+      <div class="snoopy-wrap" id="snoopy" title="點我加油！">
+        <!-- 經典造型：Snoopy 躺在狗屋上，Woodstock 在肚子上 -->
+        <svg width="200" height="95" viewBox="0 0 200 95" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 68 L100 42 L185 68 L185 88 L15 88 Z" fill="#E02020" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+          <line x1="15" y1="68" x2="185" y2="68" stroke="#000" stroke-width="2"/>
+          <ellipse cx="102" cy="60" rx="48" ry="13" fill="#fff" stroke="#000" stroke-width="2"/>
+          <ellipse cx="50" cy="57" rx="20" ry="17" fill="#fff" stroke="#000" stroke-width="2"/>
+          <path d="M38 58 C32 68 30 78 34 90 C36 92 40 90 40 84 C38 76 40 68 44 62 Z" fill="#000"/>
+          <circle cx="36" cy="57" r="4.5" fill="#000"/>
+          <path d="M46 50 Q49 53 52 50" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M54 48 Q57 51 60 48" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <path d="M148 58 Q162 52 160 44" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <path d="M148 58 Q162 52 160 44" stroke="#000" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <ellipse cx="112" cy="52" rx="7" ry="9" fill="#FFD700" stroke="#000" stroke-width="1.8"/>
+          <path d="M112 43 L108 38 L116 38 Z" fill="#FFD700" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+          <circle cx="115" cy="50" r="1.5" fill="#000"/>
+          <path d="M119 52 L124 53 L119 55 Z" fill="#FF9500" stroke="#000" stroke-width="1"/>
+          <line x1="108" y1="56" x2="105" y2="60" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>
+          <line x1="116" y1="56" x2="119" y2="60" stroke="#000" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 首頁 -->
+    <div id="screen-home" class="screen active">
+      <div class="friends-bar" id="friends-bar"></div>
+      <div class="mode-cards">
+        <div class="mode-card" data-mode="add">
+          <span class="icon">🦴➕</span>
+          <div class="mode-text">
+            <h2>加法冒險</h2>
+            <p>Snoopy 幫你數骨頭加起來！</p>
+          </div>
+        </div>
+        <div class="mode-card" data-mode="sub">
+          <span class="icon">🦴➖</span>
+          <div class="mode-text">
+            <h2>減法冒險</h2>
+            <p>拿走一些，還剩幾根骨頭？</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 遊戲 -->
+    <div id="screen-game" class="screen">
+      <div class="guest-character" id="guest-character"></div>
+      <div class="bone-bar">
+        <span>🦴</span>
+        <div class="bones" id="bones-collected"></div>
+        <span class="streak-badge" id="streak-badge">🔥 連續 0 題</span>
+      </div>
+
+      <div class="question-info">
+        <span id="q-counter">第 1 / 10 題</span>
+        <span id="stars-live">⭐ 0</span>
+      </div>
+
+      <div class="progress-track">
+        <div class="doghouse-roof"></div>
+        <div class="progress-walker" id="walker">🐶</div>
+      </div>
+
+      <div class="question-card">
+        <p class="tap-hint">👆 點點骨頭數一數再作答！</p>
+        <div class="visual-aid" id="visual-aid"></div>
+        <div class="count-display" id="count-display"></div>
+        <div class="question-text" id="question-text"></div>
+        <div class="answers" id="answers"></div>
+      </div>
+      <div class="feedback" id="feedback"></div>
+    </div>
+
+    <!-- 結果 -->
+    <div id="screen-result" class="screen">
+      <div class="result-card">
+        <div class="result-bones" id="result-bones"></div>
+        <div class="result-title" id="result-title">太厲害了！</div>
+        <div class="result-stars" id="result-stars"></div>
+        <div class="result-score" id="result-score"></div>
+        <button class="btn-primary" id="btn-replay">再玩一次 🦴</button>
+        <button class="btn-back" id="btn-home">回到首頁</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TOTAL = 10;
+    const ICON = '🦴';
+
+    const screens = {
+      home:   document.getElementById('screen-home'),
+      game:   document.getElementById('screen-game'),
+      result: document.getElementById('screen-result'),
+    };
+
+    const snoopyEl   = document.getElementById('snoopy');
+    const speechEl   = document.getElementById('speech');
+    const walkerEl   = document.getElementById('walker');
+    const streakEl   = document.getElementById('streak-badge');
+    const bonesEl    = document.getElementById('bones-collected');
+    const guestEl    = document.getElementById('guest-character');
+    const friendsBar = document.getElementById('friends-bar');
+    const musicBtn   = document.getElementById('music-btn');
+
+    let mode = 'add';
+    let currentQ = 0;
+    let score = 0;
+    let streak = 0;
+    let correctAnswer = 0;
+    let answered = false;
+    let tappedCount = 0;
+    let currentA = 0, currentB = 0;
+    let guestIndex = 0;
+
+    /* ===== 角色 SVG（漫畫風格） ===== */
+    const CHAR_SVG = {
+      snoopy: `<svg viewBox="0 0 48 48"><ellipse cx="24" cy="30" rx="14" ry="8" fill="#fff" stroke="#000" stroke-width="1.5"/><ellipse cx="14" cy="28" rx="8" ry="7" fill="#fff" stroke="#000" stroke-width="1.5"/><ellipse cx="10" cy="36" rx="3" ry="6" fill="#000"/><circle cx="9" cy="27" r="2.5" fill="#000"/><ellipse cx="30" cy="24" rx="4" ry="5" fill="#FFD700" stroke="#000" stroke-width="1"/></svg>`,
+      charlie: `<svg viewBox="0 0 48 48"><circle cx="24" cy="14" r="10" fill="#FFE0A0" stroke="#000" stroke-width="1.5"/><path d="M14 14 Q24 6 34 14" fill="none" stroke="#000" stroke-width="1.5"/><circle cx="20" cy="13" r="1.5" fill="#000"/><circle cx="28" cy="13" r="1.5" fill="#000"/><path d="M22 18 Q24 20 26 18" stroke="#000" stroke-width="1" fill="none"/><path d="M14 26 L34 26 L32 44 L16 44 Z" fill="#F4D03F" stroke="#000" stroke-width="1.5"/><path d="M16 32 L32 32 L30 36 L18 36 Z" fill="#000"/></svg>`,
+      lucy: `<svg viewBox="0 0 48 48"><circle cx="24" cy="14" r="10" fill="#FFE0A0" stroke="#000" stroke-width="1.5"/><path d="M14 12 Q24 4 34 12" fill="#000"/><circle cx="20" cy="14" r="1.5" fill="#000"/><circle cx="28" cy="14" r="1.5" fill="#000"/><path d="M14 26 L34 26 L32 44 L16 44 Z" fill="#3498DB" stroke="#000" stroke-width="1.5"/></svg>`,
+      linus: `<svg viewBox="0 0 48 48"><circle cx="24" cy="14" r="10" fill="#FFE0A0" stroke="#000" stroke-width="1.5"/><circle cx="20" cy="13" r="1.5" fill="#000"/><circle cx="28" cy="13" r="1.5" fill="#000"/><path d="M14 26 L34 26 L32 44 L16 44 Z" fill="#E74C3C" stroke="#000" stroke-width="1.5"/><line x1="18" y1="30" x2="30" y2="30" stroke="#000" stroke-width="1"/><line x1="18" y1="34" x2="30" y2="34" stroke="#000" stroke-width="1"/><path d="M32 30 Q40 28 38 40 Q36 44 32 42" fill="#5DADE2" stroke="#000" stroke-width="1.2"/></svg>`,
+      woodstock: `<svg viewBox="0 0 48 48"><ellipse cx="24" cy="28" rx="10" ry="14" fill="#FFD700" stroke="#000" stroke-width="1.5"/><path d="M24 14 L20 8 L28 8 Z" fill="#FFD700" stroke="#000" stroke-width="1.5"/><circle cx="22" cy="24" r="2" fill="#000"/><path d="M30 26 L36 28 L30 30 Z" fill="#FF9500" stroke="#000" stroke-width="1"/><line x1="18" y1="34" x2="14" y2="40" stroke="#000" stroke-width="1.5"/><line x1="30" y1="34" x2="34" y2="40" stroke="#000" stroke-width="1.5"/></svg>`,
+      schroeder: `<svg viewBox="0 0 48 48"><circle cx="24" cy="12" r="8" fill="#FFE0A0" stroke="#000" stroke-width="1.5"/><rect x="10" y="22" width="28" height="18" rx="2" fill="#8B4513" stroke="#000" stroke-width="1.5"/><rect x="12" y="24" width="24" height="6" fill="#fff" stroke="#000" stroke-width="0.8"/><line x1="14" y1="32" x2="14" y2="38" stroke="#000" stroke-width="1"/><line x1="20" y1="32" x2="20" y2="38" stroke="#000" stroke-width="1"/><line x1="26" y1="32" x2="26" y2="38" stroke="#000" stroke-width="1"/><line x1="32" y1="32" x2="32" y2="38" stroke="#000" stroke-width="1"/></svg>`,
+    };
+
+    const CHARACTERS = [
+      { id: 'snoopy',    name: 'Snoopy',    msgs: ['來吧！一起算數！', '躺在狗屋上思考最棒了～', '我相信你！'] },
+      { id: 'charlie',   name: '查理布朗',  msgs: ['加油！我也常常算錯的…', '慢慢來，一定可以的！', '好棒！繼續努力！'] },
+      { id: 'lucy',      name: '露西',      msgs: ['這題很簡單吧？', '用腦袋想一想！', '嗯，還不錯嘛！'] },
+      { id: 'linus',     name: '萊納斯',    msgs: ['抱著安全毯算數比較安心', '仔細數，不要漏掉', '你很認真呢！'] },
+      { id: 'woodstock', name: 'Woodstock', msgs: ['啾啾！（加油！）', '啾～～！', '太厲害了啾！'] },
+      { id: 'schroeder', name: '舒爾德',    msgs: ['🎵 音樂和數學一樣美妙', '專心聽題目喔', '彈一首勝利曲給你！'] },
+    ];
+
+    const HOME_MSGS = [
+      '嗨！選一個模式，朋友們都來了！',
+      '我是 Snoopy，數學交給我！',
+      '點點朋友們，聽聽他們說什麼！',
+      '今天天氣真好，來算數吧！',
+    ];
+    const TIP_MSGS = [
+      '用手指點點骨頭，一個一個數！',
+      '慢慢想，不用著急～',
+      'Woodstock 也在幫你加油！',
+      '數清楚再選答案喔！',
+      '加油加油！🦴',
+    ];
+    const GOOD_MSGS = [
+      '太棒了！獎勵一根骨頭！🦴',
+      '答對了！Snoopy 開心翻肚肚！',
+      '查理布朗說：你好厲害！',
+      '露西也點頭稱讚你！',
+    ];
+    const TRY_MSGS = [
+      '沒關係，再想想看！',
+      '差一點點，你可以的！',
+      '萊納斯：下次一定會對！',
+    ];
+    const STREAK_MSGS = {
+      3: '連續 3 題！王牌飛行員 Snoopy 出動！✈️',
+      5: '連續 5 題！朋友們都來慶祝！🏆',
+    };
+
+    /* ===== 背景音樂（原創爵士風格，致敬經典動畫氛圍） ===== */
+    const BGM = (() => {
+      let ctx, master, playing = false, timer = null, step = 0;
+      const VOL = 0.12;
+
+      const MELODY = [
+        523,0,659,0,784,0,659,0, 587,0,659,0,523,0,0,0,
+        392,0,494,0,587,0,659,0, 784,0,880,0,784,0,659,0,
+        523,0,659,0,784,0,988,0, 880,0,784,0,659,0,523,0,
+        392,0,494,0,587,0,523,0, 392,0,0,0,523,0,0,0,
+      ];
+      const BASS = [
+        131,0,0,0,131,0,0,0, 147,0,0,0,131,0,0,0,
+        98,0,0,0,98,0,0,0, 131,0,0,0,147,0,0,0,
+        131,0,0,0,165,0,0,0, 147,0,0,0,131,0,0,0,
+        98,0,0,0,98,0,0,0, 131,0,0,0,98,0,0,0,
+      ];
+      const BEAT = 0.18;
+
+      function init() {
+        if (ctx) return;
+        ctx = new (window.AudioContext || window.webkitAudioContext)();
+        master = ctx.createGain();
+        master.gain.value = VOL;
+        master.connect(ctx.destination);
+      }
+
+      function playNote(freq, time, dur, type = 'triangle') {
+        if (!freq) return;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, time);
+        g.gain.linearRampToValueAtTime(0.35, time + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, time + dur);
+        osc.connect(g);
+        g.connect(master);
+        osc.start(time);
+        osc.stop(time + dur);
+      }
+
+      function tick() {
+        const t = ctx.currentTime;
+        const mi = step % MELODY.length;
+        playNote(MELODY[mi], t, BEAT * 0.9, 'triangle');
+        playNote(BASS[mi], t, BEAT * 1.1, 'sine');
+        if (step % 4 === 0) playNote(MELODY[mi] * 2, t + BEAT * 0.5, BEAT * 0.4, 'sine');
+        step++;
+      }
+
+      function start() {
+        init();
+        if (ctx.state === 'suspended') ctx.resume();
+        if (playing) return;
+        playing = true;
+        musicBtn.classList.remove('off');
+        musicBtn.textContent = '🎵';
+        tick();
+        timer = setInterval(tick, BEAT * 1000);
+      }
+
+      function stop() {
+        playing = false;
+        if (timer) { clearInterval(timer); timer = null; }
+        musicBtn.classList.add('off');
+        musicBtn.textContent = '🔇';
+      }
+
+      function toggle() {
+        init();
+        if (ctx.state === 'suspended') ctx.resume();
+        playing ? stop() : start();
+      }
+
+      return { start, stop, toggle };
+    })();
+
+    function renderFriendsBar() {
+      friendsBar.innerHTML = CHARACTERS.map((c, i) => `
+        <div class="friend" data-idx="${i}">
+          ${CHAR_SVG[c.id]}
+          <span>${c.name}</span>
+        </div>
+      `).join('');
+      friendsBar.querySelectorAll('.friend').forEach(el => {
+        el.addEventListener('click', () => {
+          friendsBar.querySelectorAll('.friend').forEach(f => f.classList.remove('active'));
+          el.classList.add('active');
+          const c = CHARACTERS[Number(el.dataset.idx)];
+          setSpeech(c.msgs[randInt(0, c.msgs.length - 1)]);
+          animSnoopy('happy');
+        });
+      });
+    }
+
+    function showGuest() {
+      const c = CHARACTERS[guestIndex % CHARACTERS.length];
+      guestIndex++;
+      guestEl.innerHTML = `${CHAR_SVG[c.id]}<p><strong>${c.name}：</strong>${c.msgs[randInt(0, c.msgs.length - 1)]}</p>`;
+    }
+
+    function showScreen(name) {
+      Object.values(screens).forEach(s => s.classList.remove('active'));
+      screens[name].classList.add('active');
+      if (name === 'home') setSpeech(HOME_MSGS[randInt(0, HOME_MSGS.length - 1)]);
+    }
+
+    function setSpeech(text) {
+      speechEl.textContent = text;
+      speechEl.style.animation = 'none';
+      speechEl.offsetHeight;
+      speechEl.style.animation = '';
+    }
+
+    function randInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = randInt(0, i);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function animSnoopy(cls) {
+      snoopyEl.classList.remove('happy', 'sad', 'dance', 'fly');
+      void snoopyEl.offsetWidth;
+      snoopyEl.classList.add(cls);
+      setTimeout(() => snoopyEl.classList.remove(cls), 900);
+    }
+
+    function makeQuestion() {
+      let a, b;
+      if (mode === 'add') {
+        a = randInt(1, 9);
+        b = randInt(1, 10 - a);
+      } else {
+        a = randInt(3, 10);
+        b = randInt(1, a - 1);
+      }
+      correctAnswer = mode === 'add' ? a + b : a - b;
+      currentA = a; currentB = b;
+      return { a, b };
+    }
+
+    function makeWrongAnswers(correct) {
+      const opts = new Set([correct]);
+      while (opts.size < 4) {
+        const w = correct + randInt(-3, 3);
+        if (w >= 0 && w <= 18 && w !== correct) opts.add(w);
+      }
+      return shuffle([...opts]);
+    }
+
+    function renderVisual(a, b) {
+      const el = document.getElementById('visual-aid');
+      tappedCount = 0;
+      document.getElementById('count-display').textContent = '';
+
+      if (mode === 'add') {
+        let html = '';
+        for (let i = 0; i < a; i++)
+          html += `<span class="fruit-item" data-group="a">${ICON}</span>`;
+        html += '<span class="op">+</span>';
+        for (let i = 0; i < b; i++)
+          html += `<span class="fruit-item" data-group="b">${ICON}</span>`;
+        el.innerHTML = html;
+      } else {
+        let html = '';
+        for (let i = 0; i < a; i++)
+          html += `<span class="fruit-item" data-group="all" data-index="${i}">${ICON}</span>`;
+        html += `<span class="op">拿走 ${b} 個</span>`;
+        el.innerHTML = html;
+      }
+
+      el.querySelectorAll('.fruit-item').forEach(item => {
+        item.addEventListener('click', () => {
+          if (answered) return;
+          if (!item.classList.contains('tapped')) {
+            item.classList.add('tapped');
+            tappedCount++;
+            document.getElementById('count-display').textContent = `你已經數了 ${tappedCount} 個 🦴`;
+            spawnParticle(item, '✨');
+          }
+          if (mode === 'sub' && item.dataset.index !== undefined) {
+            const idx = Number(item.dataset.index);
+            if (idx >= a - b) {
+              item.classList.add('fade-out');
+            }
+          }
+        });
+      });
+    }
+
+    function updateBones() {
+      bonesEl.innerHTML = Array.from({ length: score }, () =>
+        `<span class="bone-icon">${ICON}</span>`
+      ).join('');
+    }
+
+    function updateStreak() {
+      if (streak >= 2) {
+        streakEl.textContent = `🔥 連續 ${streak} 題`;
+        streakEl.classList.add('show');
+      } else {
+        streakEl.classList.remove('show');
+      }
+    }
+
+    function updateWalker() {
+      const pct = currentQ / TOTAL;
+      walkerEl.style.left = `calc(${pct * 100}% - 14px)`;
+    }
+
+    function startGame(selectedMode) {
+      mode = selectedMode;
+      currentQ = 0;
+      score = 0;
+      streak = 0;
+      updateBones();
+      updateStreak();
+      setSpeech(mode === 'add' ? '來玩加法！點骨頭數一數！' : '來玩減法！先數全部，想想拿走後剩多少！');
+      showScreen('game');
+      nextQuestion();
+    }
+
+    function nextQuestion() {
+      if (currentQ >= TOTAL) { showResult(); return; }
+
+      answered = false;
+      showGuest();
+      const { a, b } = makeQuestion();
+
+      document.getElementById('q-counter').textContent = `第 ${currentQ + 1} / ${TOTAL} 題`;
+      document.getElementById('stars-live').textContent = `⭐ ${score}`;
+      document.getElementById('feedback').textContent = '';
+      document.getElementById('feedback').className = 'feedback';
+      updateWalker();
+
+      const symbol = mode === 'add' ? '+' : '−';
+      document.getElementById('question-text').textContent = `${a} ${symbol} ${b} = ?`;
+      renderVisual(a, b);
+
+      const answersEl = document.getElementById('answers');
+      answersEl.innerHTML = '';
+      makeWrongAnswers(correctAnswer).forEach(val => {
+        const btn = document.createElement('button');
+        btn.className = 'answer-btn';
+        btn.textContent = val;
+        btn.addEventListener('click', () => handleAnswer(btn, val));
+        answersEl.appendChild(btn);
+      });
+
+      if (currentQ === 0) setSpeech('點點骨頭數清楚，再選答案！');
+    }
+
+    function handleAnswer(btn, val) {
+      if (answered) return;
+      answered = true;
+      const feedback = document.getElementById('feedback');
+      const buttons = document.querySelectorAll('.answer-btn');
+
+      if (val === correctAnswer) {
+        btn.classList.add('correct');
+        score++;
+        streak++;
+        document.getElementById('stars-live').textContent = `⭐ ${score}`;
+        updateBones();
+        updateStreak();
+        const msg = GOOD_MSGS[randInt(0, GOOD_MSGS.length - 1)];
+        feedback.textContent = msg;
+        feedback.className = 'feedback good';
+        setSpeech(msg);
+        animSnoopy(streak >= 3 ? 'dance' : 'happy');
+        spawnParticles('🦴', 8);
+        spawnParticles('⭐', 4);
+
+        if (streak === 3 || streak === 5) {
+          setSpeech(STREAK_MSGS[streak]);
+          if (streak === 3) triggerFlyingAce();
+        }
+      } else {
+        btn.classList.add('wrong');
+        streak = 0;
+        updateStreak();
+        buttons.forEach(b => {
+          if (Number(b.textContent) === correctAnswer) b.classList.add('correct');
+        });
+        const msg = `答案是 ${correctAnswer}，${TRY_MSGS[randInt(0, TRY_MSGS.length - 1)]}`;
+        feedback.textContent = msg;
+        feedback.className = 'feedback try';
+        setSpeech(msg);
+        animSnoopy('sad');
+      }
+
+      setTimeout(() => { currentQ++; nextQuestion(); }, 1600);
+    }
+
+    function spawnParticle(fromEl, emoji) {
+      const rect = fromEl.getBoundingClientRect();
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.textContent = emoji;
+      p.style.left = rect.left + rect.width / 2 + 'px';
+      p.style.top  = rect.top + 'px';
+      p.style.setProperty('--tx', randInt(-30, 30) + 'px');
+      p.style.setProperty('--ty', randInt(-60, -20) + 'px');
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 1000);
+    }
+
+    function spawnParticles(emoji, n) {
+      for (let i = 0; i < n; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.textContent = emoji;
+        p.style.left = randInt(20, 80) + '%';
+        p.style.top  = randInt(30, 60) + '%';
+        p.style.setProperty('--tx', randInt(-80, 80) + 'px');
+        p.style.setProperty('--ty', randInt(-100, -40) + 'px');
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1000);
+      }
+    }
+
+    function triggerFlyingAce() {
+      const ace = document.createElement('div');
+      ace.className = 'flying-ace';
+      ace.textContent = '🛩️🐶';
+      document.body.appendChild(ace);
+      setTimeout(() => ace.remove(), 2000);
+      animSnoopy('fly');
+    }
+
+    function showResult() {
+      showScreen('result');
+      walkerEl.style.left = 'calc(100% - 14px)';
+      const pct = score / TOTAL;
+      let title;
+      if (pct === 1)       title = '全對！Snoopy 送你大骨頭！';
+      else if (pct >= 0.8) title = '太棒了！Snoopy 好驕傲！';
+      else if (pct >= 0.5) title = '做得不錯！繼續加油！';
+      else                 title = '沒關係，多練習就會更厲害！';
+
+      document.getElementById('result-bones').textContent = ICON.repeat(Math.min(score, 10));
+      document.getElementById('result-title').textContent = title;
+      document.getElementById('result-stars').textContent =
+        '⭐'.repeat(score) + (score < TOTAL ? '☆'.repeat(TOTAL - score) : '');
+      document.getElementById('result-score').textContent = `收集 ${score} 根骨頭，共 ${TOTAL} 題`;
+      setSpeech(pct === 1 ? '你太厲害了！下次再來玩！' : '辛苦了！下次會更好！');
+      animSnoopy('dance');
+      if (pct >= 0.8) spawnParticles('🦴', 12);
+    }
+
+    snoopyEl.addEventListener('click', () => {
+      setSpeech(TIP_MSGS[randInt(0, TIP_MSGS.length - 1)]);
+      animSnoopy('happy');
+    });
+
+    musicBtn.addEventListener('click', () => BGM.toggle());
+
+    document.querySelectorAll('.mode-card').forEach(card => {
+      card.addEventListener('click', () => {
+        BGM.start();
+        startGame(card.dataset.mode);
+      });
+    });
+    document.getElementById('btn-replay').addEventListener('click', () => startGame(mode));
+    document.getElementById('btn-home').addEventListener('click', () => showScreen('home'));
+
+    renderFriendsBar();
+    setSpeech(HOME_MSGS[0]);
+  </script>
+</body>
+</html>
